@@ -1,0 +1,56 @@
+services:
+  mysql:
+    image: mysql:8
+    container_name: mdd_mysql
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./back
+    container_name: mdd_backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DB_HOST: mysql
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./front
+    container_name: mdd_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./front/src:/app/src
+      - ./front/angular.json:/app/angular.json
+      - ./front/karma.conf.js:/app/karma.conf.js
+      - ./front/tsconfig.json:/app/tsconfig.json
+      - ./front/tsconfig.app.json:/app/tsconfig.app.json
+      - ./front/tsconfig.spec.json:/app/tsconfig.spec.json
+
+volumes:
+  mysql_data:
